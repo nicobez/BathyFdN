@@ -1,0 +1,89 @@
+f.trapeze.nb <- function(x,y,ref.line,ref.line.2)
+{
+# version 2021-05-10
+
+### References lines are considered CLOCKWISE 
+### They are CLOSED and must have the same number of points
+
+
+yref=ref.line$y
+xref=ref.line$x
+nref=length(xref) # nbr of points of the reference lines
+sref= nref - 1 # nbr of segments of the reference lines
+dy=yref[-1]-yref[-nref]
+dx=xref[-1]-xref[-nref]
+
+yref.2=ref.line.2$y
+xref.2=ref.line.2$x
+nref.2=length(xref.2)
+sref.2= nref.2 - 1
+dy.2=yref.2[-1]-yref.2[-nref.2]
+dx.2=xref.2[-1]-xref.2[-nref.2]
+
+uref <- array(NA,dim=c(sref,2))
+vref <- array(NA,dim=c(sref,2))
+vtrap <- array(NA,dim=c(sref+1,2))
+
+d = sqrt(dx^2+dy^2) # length of individual segment
+dd = c(0,cumsum(d)) # cumulated length of segment
+ 
+n=length(x)
+
+# Unit vectors of each segment (base of each trapeze)
+for(i in 1:sref)
+	assign(paste("u",i,sep=""),c(dx[i]/sqrt(dx[i]^2+dy[i]^2),dy[i]/sqrt(dx[i]^2+dy[i]^2)))
+uref <- cbind(dx/sqrt(dx^2+dy^2),dy/sqrt(dx^2+dy^2))
+
+vref <- cbind(-uref[,2],uref[,1])
+
+# Unit vectors of the sides of the trapezes
+dy.trap=yref.2-yref
+dx.trap=xref.2-xref
+vtrap <- cbind(dx.trap,dy.trap)
+
+# Trapeze membership
+# A point belongs to a trapeze if:
+# 	1- it is in-between its two projections on the sides of the trapeze parallel to the base (negative scalar product of the corresponding vectors)
+#	2- it is "to the LEFT" wrt the base of the trapeze (positive thirs dimension of the vectorial product)
+#
+# Points inside the reference.line are attributed a false trapeze number equal to n.trapeze +1 
+
+trapeze.nb = rep(NA,n)
+ps = rep(NA,n)
+side <- rep(NA,n)
+alpha <- rep(NA,n)
+
+for(i in 1:n){
+	cond <- T
+	j <- 1
+	while(cond && (j < nref)){
+		vj <- vtrap[j,] #get(paste("v",j,sep=""))
+		vjj <- vtrap[j+1,] #get(paste("v",j+1,sep=""))
+		uj <- uref[j,] #get(paste("u",j,sep=""))
+		inter.j <- proj.pt.on.line(c(x[i],y[i]),vj,c(xref[j],yref[j]),uj) 	
+		inter.jj <- proj.pt.on.line(c(x[i],y[i]),vjj,c(xref[j+1],yref[j+1]),uj)     
+		d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+		d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+		ps.0 <- d.inter.j[1]*d.inter.jj[1] + d.inter.j[2]*d.inter.jj[2]
+		sign.0 <- sign(ps.0)
+		if(sign.0==-1|sign.0==0){
+			alpha.0 = sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+			res.0 = c(xref[j] + alpha.0*dx[j],yref[j] + alpha.0*dy[j])
+			# signe du prod. vectoriel entre vect. dir. de l'axe du trapeze et vect. reliant le piont projete et le point courant
+			# si < 0 ==>
+			# si > 0 ==>
+			side.0 <- sign( (y[i]-res.0[2])*uj[1] - (x[i]-res.0[1])*uj[2] )			
+			if(side.0 == 1 | side.0==0) cond <-F 
+			if(side.0 == -1) j<-j+1
+		}
+		if(sign.0==1) j <- j+1
+	}
+	trapeze.nb[i] <- j
+	alpha[i] <- alpha.0
+	side[i] <- side.0 
+	ps[i]=ps.0
+}
+
+res=list(alpha=alpha,side=side,trapeze.nb=trapeze.nb,ps=ps)
+res
+}

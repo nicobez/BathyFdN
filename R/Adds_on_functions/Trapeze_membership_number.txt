@@ -1,0 +1,136 @@
+f.trapeze.nb <- function(x,y,ref.line,ref.line.2)
+{
+# version 2022-05-25
+
+### References lines 1 & 2 are considered CLOCKWISE 
+### They are CLOSED and must have the same number of points
+
+
+yref=ref.line$y
+xref=ref.line$x
+nref=length(xref) # nbr of points of the reference lines
+sref= nref - 1 # nbr of segments of the reference lines
+dy=yref[-1]-yref[-nref]
+dx=xref[-1]-xref[-nref]
+
+yref.2=ref.line.2$y
+xref.2=ref.line.2$x
+nref.2=length(xref.2)
+sref.2= nref.2 - 1
+dy.2=yref.2[-1]-yref.2[-nref.2]
+dx.2=xref.2[-1]-xref.2[-nref.2]
+
+uref <- array(NA,dim=c(sref,2))
+vref <- array(NA,dim=c(sref,2))
+vtrap <- array(NA,dim=c(sref+1,2))
+
+d = sqrt(dx^2+dy^2) # length of individual segment
+dd = c(0,cumsum(d)) # cumulated length of segment
+ 
+n=length(x)
+
+# Unit vectors of each segment (base of each trapeze)
+for(i in 1:sref)
+	assign(paste("u",i,sep=""),c(dx[i]/sqrt(dx[i]^2+dy[i]^2),dy[i]/sqrt(dx[i]^2+dy[i]^2)))
+uref <- cbind(dx/sqrt(dx^2+dy^2),dy/sqrt(dx^2+dy^2))
+
+vref <- cbind(-uref[,2],uref[,1])
+
+for(i in 1:sref.2)
+	assign(paste("u.2",i,sep=""),c(dx.2[i]/sqrt(dx.2[i]^2+dy.2[i]^2),dy.2[i]/sqrt(dx.2[i]^2+dy.2[i]^2)))
+uref.2 <- cbind(dx.2/sqrt(dx.2^2+dy.2^2),dy.2/sqrt(dx.2^2+dy.2^2))
+
+
+# Unit vectors of the sides of the trapezes
+dy.trap=yref.2-yref
+dx.trap=xref.2-xref
+vtrap <- cbind(dx.trap,dy.trap)
+
+# Trapeze membership
+#
+# A point belongs to a trapeze if it belongs to the triangle whose summit is opposite to base2.
+#
+# It will have a positive across.dist if is "to the LEFT" wrt the base1 of the trapeze (positive third dimension of the vectorial product)
+# Points that are "to the right", i.e. inside ref.line1, can belongs to several triangles. They are attributed to the most proximate base1 triangle. 
+# They will have negative across distances.
+
+# 	1- it is in-between its two projections on the sides of the trapeze parallel to the base (negative scalar product of the corresponding vectors)
+#	2- it is "to the LEFT" wrt the base of the trapeze (positive thirs dimension of the vectorial product)
+#
+# Points inside the reference.line are attributed a false trapeze number equal to n.trapeze +1 
+
+#trapeze.nb <- array(NA,dim=c(n,nref))#rep(NA,n)
+ps <- array(NA,dim=c(n,sref))#rep(NA,n)
+pv <- array(NA,dim=c(n,sref))#rep(NA,n)
+#side <- array(NA,dim=c(n,sref))#rep(NA,n)
+alpha <- array(NA,dim=c(n,sref))#rep(NA,n)
+dir.across <- array(NA,dim=c(n,sref))
+dir.along <- array(NA,dim=c(n,sref))
+d.across <- array(NA,dim=c(n,sref))
+d.along <- array(NA,dim=c(n,sref))
+
+for(i in 1:n){
+	for(j in 1:sref){
+#		vj <- vtrap[j,] #get(paste("v",j,sep=""))
+#		vjj <- vtrap[j+1,] #get(paste("v",j+1,sep=""))
+#		uj <- uref[j,] #get(paste("u",j,sep=""))
+#		inter.j <- proj.pt.on.line(c(x[i],y[i]),vtrap[j,],c(xref[j],yref[j]),uref[j,]) 	
+#		inter.jj <- proj.pt.on.line(c(x[i],y[i]),vtrap[j+1,],c(xref[j+1],yref[j+1]),uref[j,])     
+#		d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+#		d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+#		ps[i,j] <- d.inter.j[1]*d.inter.jj[1] + d.inter.j[2]*d.inter.jj[2] # ps.0
+#		alpha[i,j] = sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+#		res.0 = c(xref[j] + alpha[i,j]*dx[j],yref[j] + alpha[i,j]*dy[j])	
+#		pv[i,j] <- (y[i]-res.0[2])*uref[j,1] - (x[i]-res.0[1])*uref[j,2] 
+	# recherche des directions de projection 
+	# dir across
+	x.summit <- proj.pt.on.line(c(xref[j],yref[j]),vtrap[j+1,],c(xref[j+1],yref[j+1]),vtrap[j,])
+	v.dir.across <- c(x[i]-x.summit[1],y[i]-x.summit[2])
+	dir.across[i,j] <- atan(v.dir.across[2]/v.dir.across[1])*180/pi
+	# dir along
+ 	x.summit <- proj.pt.on.line(c(xref[j],yref[j]),uref.2[j,],c(xref.2[j],yref.2[j]),uref[j,])
+	v.dir.along <- c(x[i]-x.summit[1],y[i]-x.summit[2])
+	dir.along[i,j] <- atan(v.dir.along[2]/v.dir.along[1])*180/pi
+	###
+	### position "along"
+	inter.j <- proj.pt.on.line(c(x[i],y[i]),vtrap[j,],c(xref[j],yref[j]),v.dir.along)     	
+	inter.jj <- proj.pt.on.line(c(x[i],y[i]),vtrap[j+1,],c(xref[j+1],yref[j+1]),v.dir.along)     
+	d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+	d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+	ps[i,j] <- d.inter.j[1]*d.inter.jj[1] + d.inter.j[2]*d.inter.jj[2]
+	alpha[i,j] = sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+	tmp = c(xref[j] + alpha[i,j]*dx[j],yref[j] + alpha[i,j]*dy[j])	
+	pv[i,j] <- (y[i]-tmp[2])*uref[j,1] - (x[i]-tmp[1])*uref[j,2] 
+	d.along[i,j] <- dd[j] + alpha[i,j]*d[j]	
+	### position "across"
+	inter.j <- proj.pt.on.line(c(x[i],y[i]),uref[j,],c(xref[j],yref[j]),v.dir.across)     	
+	inter.jj <- proj.pt.on.line(c(x[i],y[i]),uref.2[j,],c(xref.2[j],yref.2[j]),v.dir.across)     
+	d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+	d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+	d.across[i,j] <- sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+
+	}
+}
+
+### Selection des points outside
+sel <- ps <= 0 & alpha <= 1 & pv >= 0
+sel.out <- apply(sel,1,sum) == 1
+rank.out <- (1:n)[sel.out]
+triangle.out <- as.numeric(sapply(1:n, function(i) which(sel[i,]==1)))
+### triangle nb
+sel <- ps < 0 & alpha < 1 & pv < 0
+triangle.in <- as.numeric(sapply(1:n, function(i) which(d.across[i,]==min(d.across[i,][sel[i,]]))))
+###
+triangle.nb <- triangle.out 
+triangle.nb[!sel.out] <- triangle.in[!sel.out]
+###
+d.across <- d.across * sign(pv)
+###
+d.across <- sapply(1:n,function(i) d.across[i,triangle.nb[i]])
+d.along <- sapply(1:n,function(i) d.along[i,triangle.nb[i]])
+dir.across <- sapply(1:n,function(i) dir.across[i,triangle.nb[i]])
+dir.along <- sapply(1:n,function(i) dir.along[i,triangle.nb[i]])
+
+res=list(Dist.across=d.across,Dist.along=d.along,Dir.across=dir.across,Dir.along=dir.along)#ps=ps,alpha=alpha,pv=pv,#side=side,trapeze.nb=trapeze.nb,ps=ps)
+res
+}

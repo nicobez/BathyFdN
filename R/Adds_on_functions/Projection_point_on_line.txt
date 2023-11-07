@@ -1,0 +1,30 @@
+##########################################
+### FUNCTION TO PROJECT A POINT x=c(x1,x2) 
+### ON A LINE WITH DIRECTION v=c(v1,v2) AND A POINT xv=c(xv1,xv2)
+### ACCORDING TO THE DIRECTION u=c(u1,u2)
+##########################################
+proj.pt.on.line <- function(x,v,xv,u)
+{
+if(u[1]!=0 & v[1]!=0){
+	beta.v = xv[2]-(v[2]/v[1])*xv[1]
+	beta.u = x[2]-(u[2]/u[1])*x[1]
+	resx = (beta.u-beta.v)/((v[2]/v[1])-(u[2]/u[1]))
+	resy = (v[2]/v[1])*resx + beta.v
+	res=c(resx,resy)
+}
+if(u[1]==0){
+	resx <- x[1]
+	a <- v[2]/v[1]
+	b <- xv[2]-a*xv[1]
+	resy <- a*resx+b
+	res <- c(resx,resy) 
+}
+if(v[1]==0){
+	resx=xv[1]
+	a <- u[2]/u[1]
+	b <- x[2]-a*x[1]
+	resy <- a*resx+b
+	res <- c(resx,resy) 
+}
+res
+}

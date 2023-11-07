@@ -1,0 +1,92 @@
+f.unfolding <- function(x,y,ref.line,ref.line.2,trapeze.nb)
+{
+# version 2021-05-10
+
+yref=ref.line$y
+xref=ref.line$x
+nref=length(xref) # nbr de points dans la ligne de référence
+sref= nref - 1 # nbr de segments dans la ligne de reference
+dy=yref[-1]-yref[-nref]
+dx=xref[-1]-xref[-nref]
+
+yref.2=ref.line.2$y
+xref.2=ref.line.2$x
+nref.2=length(xref.2) # nbr de points dans la ligne de référence
+sref.2= nref.2 - 1 # nbr de segments dans la ligne de reference
+dy.2=yref.2[-1]-yref.2[-nref.2]
+dx.2=xref.2[-1]-xref.2[-nref.2]
+
+uref <- array(NA,dim=c(sref,2))
+uref.2 <- array(NA,dim=c(sref.2,2))
+vref <- array(NA,dim=c(sref,2))
+vtrap <- array(NA,dim=c(nref,2))
+
+### calcul des nouvelles coordonnées
+### ATTENTION ces coordonnées doivent être ré-orientée si nécessaire 
+### e.g. d.along ==> - d.along et/ou d.across ==> - d.across
+d = sqrt(dx^2+dy^2) ### longueur des segments
+dd = c(0,cumsum(d)) ### longeur cumulée
+
+### cardinal des points 
+n=length(x)
+
+### vecteur directeur des segments, normés à 1
+for(i in 1:(nref-1))
+	assign(paste("u",i,sep=""),c(dx[i]/sqrt(dx[i]^2+dy[i]^2),dy[i]/sqrt(dx[i]^2+dy[i]^2)))
+uref <- cbind(dx/sqrt(dx^2+dy^2),dy/sqrt(dx^2+dy^2))
+
+for(i in 1:(nref.2-1))
+	assign(paste("u.2",i,sep=""),c(dx.2[i]/sqrt(dx.2[i]^2+dy.2[i]^2),dy.2[i]/sqrt(dx.2[i]^2+dy.2[i]^2)))
+uref.2 <- cbind(dx.2/sqrt(dx.2^2+dy.2^2),dy.2/sqrt(dx.2^2+dy.2^2))
+
+vref <- cbind(-uref[,2],uref[,1])
+
+### vecteurs directeurs des cotés des trapèzes
+dy.trap <- yref.2-yref
+dx.trap <- xref.2-xref
+norme <- sqrt(dx.trap^2+dy.trap^2)
+vtrap <- cbind(dx.trap/norme,dy.trap/norme)
+
+d.across <- rep(NA,n)
+d.along <- rep(NA,n)
+dir.across <- rep(NA,n)
+dir.along <- rep(NA,n)
+
+for(i in 1:n){
+	j <- trapeze.nb[i]
+	if(j <= sref){
+	jj <- j+1
+	vj <- vtrap[j,] #get(paste("v",j,sep=""))
+	vjj <- vtrap[j+1,] #get(paste("v",j+1,sep=""))
+	uj <- uref[j,] #get(paste("u",j,sep=""))
+	u.2j <- uref.2[j,]
+	# recherche des directions de projection 
+	# dir across
+	x.summit <- proj.pt.on.line(c(xref[j],yref[j]),vjj,c(xref[jj],yref[jj]),vj)
+	v.dir.across <- c(x[i]-x.summit[1],y[i]-x.summit[2])
+	dir.across[i] <- atan(v.dir.across[2]/v.dir.across[1])*180/pi
+	# dir along
+ 	x.summit <- proj.pt.on.line(c(xref[j],yref[j]),u.2j,c(xref.2[j],yref.2[j]),uj)
+	v.dir.along <- c(x[i]-x.summit[1],y[i]-x.summit[2])
+	dir.along[i] <- atan(v.dir.along[2]/v.dir.along[1])*180/pi
+	###
+	# position "along"
+	inter.j <- proj.pt.on.line(c(x[i],y[i]),vj,c(xref[j],yref[j]),v.dir.along)     	
+	inter.jj <- proj.pt.on.line(c(x[i],y[i]),vjj,c(xref[j+1],yref[j+1]),v.dir.along)     
+	#d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+	#d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+	alpha = sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+	d.along[i] <- dd[j] + alpha*d[j]	
+	# position "across"
+	inter.j <- proj.pt.on.line(c(x[i],y[i]),uj,c(xref[j],yref[j]),v.dir.across)     	
+	inter.jj <- proj.pt.on.line(c(x[i],y[i]),u.2j,c(xref.2[j],yref.2[j]),v.dir.across)     
+	#d.inter.j <- c(inter.j[1]-x[i],inter.j[2]-y[i])
+	#d.inter.jj <- c(inter.jj[1]-x[i],inter.jj[2]-y[i])
+	alpha = sqrt( (x[i]-inter.j[1])^2 + (y[i]-inter.j[2])^2) / sqrt( (inter.jj[1]-inter.j[1])^2 + (inter.jj[2]-inter.j[2])^2)
+	d.across[i] <- alpha#/10
+	
+}
+}
+res=list(Dist.across=d.across,Dist.along=d.along,Dir.across=dir.across,Dir.along=dir.along)
+res
+}

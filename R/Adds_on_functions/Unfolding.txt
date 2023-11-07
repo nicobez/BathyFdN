@@ -1,0 +1,115 @@
+f.unfolding <- function(x,y,ref.line,ref.line.2)
+{
+# version 2022-05-30
+
+### References lines 1 & 2 are considered CLOCKWISE 
+### They are CLOSED and must have the same number of points
+
+### Points are assigned two attributes:
+###  - inside (TRUE) or outside (FALSE) the ref.line.
+###    A point is INSIDE if a SEMI-LINE starting at the point crosses an ODD number of times the border.
+###  - the numbers of the (eventually several) double-cones they fall in. 
+###    A double cone is defined by a quadrilateral and the across-summit associated to it.
+###    A point belongs to a double cone if the vectorial products between the vector joining the point and the acoss-summit 
+###      and the two lateral sides of the quadrilatral get opposite signs
+
+### Then, for points falling in several cones, the final cone number is the one WITH SMALLEST ACROSS-DISTANCE AMONGTS THOSE THAT ARE ALLOWED
+### Across-distances of inside points ar set to negative values in the end.
+
+### u refers to along vectors
+### v refers to across vectors
+
+n=length(x)
+
+yref=ref.line$y
+xref=ref.line$x
+nref=length(xref) # nbr of points of the reference lines
+sref= nref - 1 # nbr of segments of the reference lines
+dy=yref[-1]-yref[-nref]
+dx=xref[-1]-xref[-nref]
+d = sqrt(dx^2+dy^2) # length of individual segment
+dd = c(0,cumsum(d)) # cumulated length of segment
+
+yref.2=ref.line.2$y
+xref.2=ref.line.2$x
+nref.2=length(xref.2)
+sref.2= nref.2 - 1
+dy.2=yref.2[-1]-yref.2[-nref.2]
+dx.2=xref.2[-1]-xref.2[-nref.2]
+
+u <- cbind(dx/sqrt(dx^2+dy^2),dy/sqrt(dx^2+dy^2))
+u.2 <- cbind(dx.2/sqrt(dx.2^2+dy.2^2),dy.2/sqrt(dx.2^2+dy.2^2))
+
+# Unit vectors of the sides of the trapezes
+dy.trap=yref.2-yref
+dx.trap=xref.2-xref
+v <- cbind(dx.trap,dy.trap)
+
+dir.across <- array(NA,dim=c(n,sref))
+dir.along <- array(NA,dim=c(n,sref))
+d.across <- array(NA,dim=c(n,sref))
+d.across.normed <- array(NA,dim=c(n,sref))
+d.along <- array(NA,dim=c(n,sref))
+in.cone <- array(NA,dim=c(n,sref))
+
+inside <- rep(0,n)
+
+for(i in 1:n){
+	for(j in 1:sref){
+		### COMPUTE DIRECTION OF PROJECTION ACROSS and ALONG 
+		# dir across
+		summit.across <- proj.pt.on.line(c(xref[j],yref[j]),v[j+1,],c(xref[j+1],yref[j+1]),v[j,])
+		vx <- c(x[i]-summit.across[1],y[i]-summit.across[2])
+		dir.across[i,j] <- atan(vx[2]/vx[1])*180/pi
+		# dir along
+ 		summit.along <- proj.pt.on.line(c(xref[j],yref[j]),u.2[j,],c(xref.2[j],yref.2[j]),u[j,])
+		ux <- c(x[i]-summit.along[1],y[i]-summit.along[2])
+		dir.along[i,j] <- atan(ux[2]/ux[1])*180/pi
+		### COMPUTE PROJECTIONS on u1, u2, v1, v2
+		inter.v.1 <- proj.pt.on.line(c(x[i],y[i]),v[j,],c(xref[j],yref[j]),ux)     	
+		inter.v.2 <- proj.pt.on.line(c(x[i],y[i]),v[j+1,],c(xref[j+1],yref[j+1]),ux)  
+		inter.u.1 <- proj.pt.on.line(c(x[i],y[i]),u[j,],c(xref[j],yref[j]),vx)     	
+		inter.u.2 <- proj.pt.on.line(c(x[i],y[i]),u.2[j,],c(xref.2[j],yref.2[j]),vx)
+		### COMPUTE THE VECTORS FROM THE INTERSECTIONS TO THE POINT
+   		across.1 <- c(x[i]-inter.u.1[1],y[i]-inter.u.1[2])
+  		across.2 <- c(x[i]-inter.u.2[1],y[i]-inter.u.2[2])
+		along.1 <- c(x[i]-inter.v.1[1],y[i]-inter.v.1[2])
+		along.2 <- c(x[i]-inter.v.2[1],y[i]-inter.v.2[2])
+		#
+		in.cone[i,j] <- sign(f.pv(vx,v[j,])) != sign(f.pv(vx,v[j+1,]))
+		alpha = sqrt( (x[i]-inter.v.1[1])^2 + (y[i]-inter.v.1[2])^2) / sqrt( (inter.v.2[1]-inter.v.1[1])^2 + (inter.v.2[2]-inter.v.1[2])^2) 
+		d.along[i,j] <- dd[j] + alpha*d[j]	
+		d.across.max <- sqrt( (inter.u.2[1]-inter.u.1[1])^2 + (inter.u.2[2]-inter.u.1[2])^2)
+		d.across[i,j] <- sqrt( (x[i]-inter.u.1[1])^2 + (y[i]-inter.u.1[2])^2)
+		d.across.normed[i,j] <- d.across[i,j]/d.across.max 
+		### INSIDE 
+		# Projection on the LINE j according to the direction c(1,0) 
+		inter <- proj.pt.on.line(c(x[i],y[i]),u[j,],c(xref[j],yref[j]),c(1,0))
+		# Does the intersection belongs to the SEGMENT j ?
+		v.inter.1 <- c(xref[j]-inter[1],yref[j]-inter[2])
+		v.inter.2 <- c(xref[j+1]-inter[1],yref[j+1]-inter[2])
+		if((f.ps(v.inter.1,v.inter.2) < 0) & (inter[1] >= x[i])) inside[i] <- inside[i]+1 
+	}
+}
+inside <- (inside %% 2) != 0
+
+### SELECTION OF THE POSSIBLE CONE NUMBERS
+### CAUTIOUS : sel can be a LIST or a MATRIX/ARRAY
+### If all the points get the SAME number of possible cones, THEN sel is a MATRIX/ARRAY that should be considered COLUMN by COLUMN
+### If not (the MOST PROBABLE CASE), THEN sel is a LIST whose ELEMENT CONTAINS THE POSSIBLE CONE NUMBERS OF EACH POINT WITH 1 TO NREF POSSIBLE VALUES
+sel <- sapply(1:n, function(i) which(in.cone[i,]==T))
+### SELECTION OF THE CONE WITH SMALLEST ACROSS DISTANCE AMONGTS THOSE THAT ARE ALLOWED
+if(is.list(sel)) 
+	triangle.nb <- unlist(sapply(1:n, function(i) which(d.across[i,]==min(d.across[i,][sel[[i]]]))))
+else 
+	triangle.nb <- unlist(sapply(1:n, function(i) which(d.across[i,]==min(d.across[i,][sel[,i]]))))
+
+d.across.normed <- sapply(1:n,function(i) d.across.normed[i,triangle.nb[i]])
+d.across.normed <- d.across.normed * ifelse(inside,-1,1)
+d.along <- sapply(1:n,function(i) d.along[i,triangle.nb[i]])
+dir.across <- sapply(1:n,function(i) dir.across[i,triangle.nb[i]])
+dir.along <- sapply(1:n,function(i) dir.along[i,triangle.nb[i]])
+
+res=list(Dist.across=d.across.normed,Dist.along=d.along,Dir.across=dir.across,Dir.along=dir.along,Trapeze.nb=triangle.nb)#ps=ps,alpha=alpha,pv=pv,#side=side,trapeze.nb=trapeze.nb,ps=ps)
+res
+}

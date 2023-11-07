@@ -1,0 +1,45 @@
+#############################################
+# Replication of the unfolded database 
+# This is Used to compute clockwise and anticlockwise distances
+# A coding variable is added to track original and replicated data 
+#   in order to avoid counting pairs twice
+############################################
+f.replication.unilaterale <- function(db,line=ref.line){
+  yref=line$y ; xref=line$x
+  nref=length(xref) # nbr de points dans la ligne de r?f?rence
+  dd = c(0,cumsum(sqrt((xref[-1]-xref[-nref])^2+(yref[-1]-yref[-nref])^2))) ### longeur cumul?e
+  # ajout d'une variable pour tracer les donnees ajoutees
+  db <- db.add(db,code=1,auto.locate=T)
+  # R?plication des donn?es ? la fin du d?ploiement
+  tmp <- db.extract(db,names=db$names[-1])
+  tmp$x2 <- tmp$x2 + dd[nref] #max(tmp$y[trapeze.fin])
+  tmp$code <- 2
+  dbout <- db.append(db,tmp)
+  #
+  dbout
+}
+
+#############################################
+# Replication of the unfolded database 
+# on both sides to avoid border effects when kriging
+#############################################
+f.replication.bilaterale <- function(db,line=ref.line,n.replicat=4){
+  # n.replicat : nbr de trapezes replicat en haut et en bas
+  yref=line$y ; xref=line$x
+  nref=length(xref) # nbr de points dans la ligne de r?f?rence
+  dd = c(0,cumsum(sqrt((xref[-1]-xref[-nref])^2+(yref[-1]-yref[-nref])^2))) ### longeur cumul?e
+  # ajout d'une variable pour tracer les donnees ajoutees
+  db <- db.add(db,original=T,type.locate=F)
+  # Ajout des trapezes ? la fin du d?ploiement
+  tmp <- db.extract(db.reduce(db.sel(db,trapeze.nb <=n.replicat)),names=db$names[-1])
+  tmp$Dist.along <- tmp$Dist.along + dd[nref] #max(tmp$y[trapeze.fin])
+  tmp$original <- F
+  dbout <- db.append(db,tmp)
+  # Ajout des trapezes avant le d?but du d?ploiement en inversant la coordonn?es y
+  tmp <- db.extract(db.reduce(db.sel(db,trapeze.nb >=(max(trapeze.nb)-(n.replicat-1)))),names=db$names[-1])
+  tmp$Dist.along <- tmp$Dist.along - dd[nref] #max(tmp$y[trapeze.fin])
+  tmp$original <- F
+  dbout <- db.append(dbout,tmp)
+  #
+  dbout
+}

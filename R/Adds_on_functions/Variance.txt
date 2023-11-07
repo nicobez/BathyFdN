@@ -1,0 +1,31 @@
+##############
+# Correction of stat functions that should be in 1/N (true experimental stats) 
+#  and not in 1/(N-1) (unbiased estimators of the stats in i.i.d. cases)
+# The var() function is located in the Gloabal Environement.
+# To use the native function one must writes stats:::var()
+##############
+var <- function(x, y = NULL, na.rm = TRUE, use){
+# Corrected function for calculation empirical variances
+  if (missing(use)) 
+    use <- if (na.rm) 
+      "na.or.complete"
+  else "everything"
+  tmp <- stats:::var(x=x,y=y,use=use)
+  N <- NROW(x)
+  tmp*(N-1)/N
+}  
+
+cov <- function(x, y = NULL, use = "everything", 
+                method = c("pearson","kendall","spearman")){
+# Corrected function for calculation empirical covariances
+  tmp <- stats:::cov(x=x,y=y,use=use,method=method)
+  N <- NROW(x)
+  tmp*(N-1)/N
+}
+
+cor <- function(x, y = NULL, use = "everything", 
+                method = c("pearson","kendall","spearman")){
+# Corrected function for calculation empirical correlations
+  tmp <- cov(x, y = NULL, use = use, method = method)
+  cov2cor(tmp)
+}

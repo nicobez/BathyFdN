@@ -1,0 +1,35 @@
+f.inside <- function(x,y,ref.line)
+{
+# version 2022-05-31
+
+### Reference line is considered CLOCKWISE 
+### It is CLOSED.
+# A point is INSIDE if a SEMI-LINE starting at the point crosses an ODD number of times the border
+
+yref=ref.line$y
+xref=ref.line$x
+nref=length(xref) # nbr of points of the reference lines
+sref= nref - 1 # nbr of segments of the reference lines
+dy=yref[-1]-yref[-nref]
+dx=xref[-1]-xref[-nref]
+
+n=length(x)
+
+u <- cbind(dx/sqrt(dx^2+dy^2),dy/sqrt(dx^2+dy^2))
+v <- c(-u[2],u[1])
+
+inside <- rep(0,n)
+
+for(i in 1:n){
+	for(j in 1:sref){
+		# Projection on the LINE j according to a given directin eg c(1,0) 
+		inter <- proj.pt.on.line(c(x[i],y[i]),u[j,],c(xref[j],yref[j]),c(1,0))
+		# Does the intersection belongs to the SEGMENT j ?
+		v.inter.1 <- c(xref[j]-inter[1],yref[j]-inter[2])
+		v.inter.2 <- c(xref[j+1]-inter[1],yref[j+1]-inter[2])
+		ps <- v.inter.1[1]*v.inter.2[1] + v.inter.1[2]*v.inter.2[2]
+		if((ps < 0) & (inter[1] >= x[i])) inside[i] <- inside[i]+1     	
+	}
+}
+(inside %% 2) != 0
+}
